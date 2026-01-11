@@ -13,7 +13,7 @@
 <body>
   <div>
     <canvas id="game" width="800" height="500"></canvas>
-    <div class="hint">Stânga/Dreapta pentru paletă. Pasul 1: doar paleta + bucla de joc.</div>
+    <div class="hint">Stânga/Dreapta sau mouse pentru paletă. Space: start/next/restart. P: pauză.</div>
   </div>
 
   <script>
@@ -25,6 +25,30 @@
 
   // --- Input ---
   const keys = { left: false, right: false };
+
+  const mouse = { active: false, x: canvas.width / 2 };
+  
+  // Mouse / pointer control (move paddle by moving the cursor over the canvas)
+  function updateMouseX(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const x = (clientX - rect.left) * scaleX;
+    mouse.x = x;
+    mouse.active = true;
+  }
+  
+  canvas.addEventListener("mousemove", (e) => {
+    updateMouseX(e.clientX, e.clientY);
+  });
+  
+  canvas.addEventListener("mouseleave", () => {
+    mouse.active = false;
+  });
+  
+  // Optional: Pointer events (touch/pen)
+  canvas.addEventListener("pointermove", (e) => {
+    updateMouseX(e.clientX, e.clientY);
+  });
 
   // --- Game state ---
   const paddle = {
@@ -50,7 +74,7 @@
     score: 0,
     lives: 3,
     level: 1,
-    status: "SERVE", // SERVE | PLAYING | WIN | GAME_OVER
+    status: "SERVE", // SERVE | PLAYING | PAUSED | WIN | GAME_OVER
     ballSpeedLimit: null // folosit de power-up-ul "SLOW"
   };
 
@@ -255,6 +279,16 @@
         resetGame();
       }
     }
+    
+    if (e.code === "KeyP") {
+      e.preventDefault();
+      // Pause is only meaningful during gameplay
+      if (game.status === "PLAYING") {
+        game.status = "PAUSED";
+      } else if (game.status === "PAUSED") {
+        game.status = "PLAYING";
+      }
+    }
   });
 
   window.addEventListener("keyup", (e) => {
@@ -266,13 +300,20 @@
   let lastTs = performance.now();
 
   function update(dt) {
-    // întotdeauna permitem mișcarea paletei (inclusiv în SERVE/WIN/GAME_OVER)
-    let dir = 0;
-    if (keys.left) dir -= 1;
-    if (keys.right) dir += 1;
+    // mișcare paletă în toate stările (inclusiv SERVE / PAUSED)
+    if (mouse.active) {
+      paddle.x = clamp(mouse.x - paddle.w / 2, 0, canvas.width - paddle.w);
+    } else {
+      let dir = 0;
+      if (keys.left) dir -= 1;
+      if (keys.right) dir += 1;
 
-    paddle.x += dir * paddle.speed * dt;
-    paddle.x = clamp(paddle.x, 0, canvas.width - paddle.w);
+      paddle.x += dir * paddle.speed * dt;
+      paddle.x = clamp(paddle.x, 0, canvas.width - paddle.w);
+    }
+
+    // Pauză: îngheață logica de joc, dar permite repoziționarea paletei
+    if (game.status === "PAUSED") return;
 
     if (game.status === "SERVE") {
       // mingea stă pe paletă
@@ -471,6 +512,9 @@
       if (game.status === "SERVE") {
         msg = `LEVEL ${game.level}`;
         msg2 = "Apasă SPACE pentru start";
+      } else if (game.status === "PAUSED") {
+        msg = "PAUSED";
+        msg2 = "Apasă P pentru a continua";
       } else if (game.status === "WIN") {
         msg = "YOU WIN";
         msg2 = "Apasă Space pentru nivelul următor";

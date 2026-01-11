@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Breakout - Leveluri + Power-ups + 2-hit bricks</title>
+  <style>
+    body { margin: 0; background: #111; display: grid; place-items: center; height: 100vh; }
+    canvas { background: #0b0b0b; border: 1px solid #333; }
+    .hint { color: #bbb; font: 14px/1.3 system-ui, sans-serif; margin-top: 10px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div>
+    <canvas id="game" width="800" height="500"></canvas>
+    <div class="hint">
+      Stânga/Dreapta sau mouse pentru paletă. SPACE: start / nivel următor / restart. P: pauză. M: mute.
+      <br/>Power-ups: W = WIDE, S = SLOW. Unele cărămizi au 2 hit-uri (indicator mic).
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    // --- Setup canvas ---
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    // --- Input ---
+    const keys = { left: false, right: false };
+
+    const mouse = { active: false, x: canvas.width / 2 };
+    
+    // Mouse / pointer control (move paddle by moving the cursor over the canvas)
+    function updateMouseX(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const x = (clientX - rect.left) * scaleX;
+      mouse.x = x;
+      mouse.active = true;
+    }
+    
+    canvas.addEventListener("mousemove", (e) => {
+      updateMouseX(e.clientX, e.clientY);
+    });
+    
+    canvas.addEventListener("mouseleave", () => {
+      mouse.active = false;
+    });
+    
+    // Optional: Pointer events (touch/pen)
+    canvas.addEventListener("pointermove", (e) => {
+      updateMouseX(e.clientX, e.clientY);
+    });
+
+    // --- Game tuning ---
+    const MAX_BOUNCE_ANGLE = (60 * Math.PI) / 180; // 60°
+
+    // --- Level tuning ---
+    const BASE_BALL_SPEED = 300;     // px/s (Level 1)
+    const SPEED_PER_LEVEL = 0.12;    // +12% per level
+    const BASE_BRICK_ROWS = 6;
+    const MAX_BRICK_ROWS = 10;
+
+    // --- Bricks configuration ---
+    const BRICK_COLS = 10;
+    const BRICK_GAP = 8;
+    const BRICK_TOP = 60;
+    const BRICK_SIDE_MARGIN = 40;
+    const BRICK_H = 22;
+
+    const BRICK_W =
+      (canvas.width - 2 * BRICK_SIDE_MARGIN - (BRICK_COLS - 1) * BRICK_GAP) / BRICK_COLS;
+
+    // --- Paddle / Ball ---
+    const paddle = {
+      w: 120,
+      h: 14,
+      x: (canvas.width - 120) / 2,
+      y: canvas.height - 40,
+      speed: 520
+    };
+    const PADDLE_BASE_W = paddle.w;
+
+    const ball = {
+      r: 9,
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      vx: 0,
+      vy: 0
+    };
+
+    // --- Game state ---
+    const game = {
+      score: 0,
+      lives: 3,
+      level: 1,
+      status: "SERVE",     // SERVE | PLAYING | PAUSED | WIN | GAME_OVER
+      combo: 0,
+      ballSpeedLimit: null, // folosit de power-up-ul "SLOW"
+      muted: false
+    };
+
+    // --- High score (localStorage) ---
+    const HIGH_SCORE_KEY = "breakout_high_score_v1";
+    let highScore = 0;
+    try {
+      highScore = Number(localStorage.getItem(HIGH_SCORE_KEY) || "0") || 0;
+    } catch (_) {
+      highScore = 0;
+    }
+    function syncHighScore() {
+      if (game.score > highScore) {
+        highScore = game.score;
+        try { localStorage.setItem(HIGH_SCORE_KEY, String(highScore)); } catch (_) {}
+      }
+    }
+
+    // --- Audio (minimal WebAudio beeps) ---
+    let audioCtx = null;
+    function ensureAudio() {
+      if (game.muted) return;
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    }
+
+    function beep(freq, ms, gain=0.05, type="sine") {
+      if (game.muted) return;
+      if (!audioCtx) return;
+      const t0 = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms/1000);
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start(t0);
+      o.stop(t0 + ms/1000);
+    }
+
+    function sfx(name) {
+      // frecvențe orientative, scurte, non-invazive
+      if (!audioCtx || game.muted) return;
+      if (name === "wall")   beep(520, 25, 0.04);
+      if (name === "paddle") beep(280, 35, 0.05);
+      if (name === "brick")  beep(760, 35, 0.05, "triangle");
+      if (name === "brick2") beep(430, 22, 0.04);
+      if (name === "power")  beep(900, 60, 0.05, "square");
+      if (name === "life")   beep(180, 120, 0.06, "sawtooth");
+      if (name === "win")    beep(1000, 120, 0.05, "triangle");
+    }
+
+    // --- Power-ups ---
+    const POWERUP_CHANCE = 0.18;
+    const POWERUP_FALL_SPEED = 170;
+    const POWERUP_SIZE = 18;
+    const POWERUP_WIDE_MULT = 1.5;
+    const POWERUP_WIDE_MS = 10000;
+    const POWERUP_SLOW_FACTOR = 0.75;
+    const POWERUP_SLOW_MS = 8000;
+
+    const powerUps = []; // {x,y,vy,size,type}
+    let wideTimeoutId = null;
+    let slowTimeoutId = null;
+
+    // --- Helpers ---
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function ballSpeedForLevel(level) {
+      return BASE_BALL_SPEED * (1 + (level - 1) * SPEED_PER_LEVEL);
+    }
+
+    function rowsForLevel(level) {
+      return Math.min(MAX_BRICK_ROWS, BASE_BRICK_ROWS + (level - 1));
+    }
+
+    function clearEffects() {
+      if (wideTimeoutId) { clearTimeout(wideTimeoutId); wideTimeoutId = null; }
+      if (slowTimeoutId) { clearTimeout(slowTimeoutId); slowTimeoutId = null; }
+      paddle.w = PADDLE_BASE_W;
+      game.ballSpeedLimit = null;
+    }
+
+    // --- Bricks with HP ---
+    // Pattern simplu: la niveluri mici, rândurile impare au HP=2; la niveluri mari crește densitatea.
+    function brickHPFor(level, row) {
+      if (level <= 2) return (row % 2 === 1) ? 2 : 1;  // 1,2,1,2,...
+      if (level <= 4) return (row % 3 === 2) ? 2 : 1;  // mai rar
+      return (row % 2 === 0) ? 2 : 1;                  // mai des
+    }
+
+    function buildBricks(rows, level) {
+      const arr = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < BRICK_COLS; c++) {
+          const x = BRICK_SIDE_MARGIN + c * (BRICK_W + BRICK_GAP);
+          const y = BRICK_TOP + r * (BRICK_H + BRICK_GAP);
+          const hp = brickHPFor(level, r);
+          arr.push({ x, y, w: BRICK_W, h: BRICK_H, alive: true, hp, maxHp: hp });
+        }
+      }
+      return arr;
+    }
+
+    function resetBallAndPaddle() {
+      paddle.x = (canvas.width - paddle.w) / 2;
+
+      ball.x = paddle.x + paddle.w / 2;
+      ball.y = paddle.y - ball.r;
+      ball.vx = 0;
+      ball.vy = 0;
+
+      // când reintri în SERVE, curățăm drop-urile rămase pe ecran
+      powerUps.length = 0;
+
+      // combo începe mereu de la 0 pe un serve nou
+      game.combo = 0;
+    }
+
+    function startLevel(level) {
+      clearEffects();
+      powerUps.length = 0;
+
+      game.level = level;
+      const rows = rowsForLevel(level);
+      bricks = buildBricks(rows, level);
+
+      resetBallAndPaddle();
+      game.status = "SERVE";
+    }
+
+    function launchBall() {
+      const speed = ballSpeedForLevel(game.level);
+      const angle = (-Math.PI / 2) + (Math.random() * 0.8 - 0.4); // -90° ± ~23°
+      ball.vx = Math.cos(angle) * speed;
+      ball.vy = Math.sin(angle) * speed;
+      game.status = "PLAYING";
+    }
+
+    function resetGame() {
+      game.score = 0;
+      game.lives = 3;
+      startLevel(1);
+    }
+
+    // --- Power-up helpers ---
+    function clampBallSpeed() {
+      if (game.ballSpeedLimit == null) return;
+      const s = Math.hypot(ball.vx, ball.vy);
+      if (s <= 0) return;
+      if (s > game.ballSpeedLimit) {
+        const k = game.ballSpeedLimit / s;
+        ball.vx *= k;
+        ball.vy *= k;
+      }
+    }
+
+    function spawnPowerUp(x, y) {
+      const type = Math.random() < 0.5 ? "WIDE" : "SLOW";
+      powerUps.push({ x, y, vy: POWERUP_FALL_SPEED, size: POWERUP_SIZE, type });
+    }
+
+    function applyPowerUp(type) {
+      if (type === "WIDE") {
+        paddle.w = Math.round(PADDLE_BASE_W * POWERUP_WIDE_MULT);
+        paddle.x = clamp(paddle.x, 0, canvas.width - paddle.w);
+
+        if (wideTimeoutId) clearTimeout(wideTimeoutId);
+        wideTimeoutId = setTimeout(() => {
+          paddle.w = PADDLE_BASE_W;
+          paddle.x = clamp(paddle.x, 0, canvas.width - paddle.w);
+          wideTimeoutId = null;
+        }, POWERUP_WIDE_MS);
+
+        return;
+      }
+
+      if (type === "SLOW") {
+        game.ballSpeedLimit = ballSpeedForLevel(game.level) * POWERUP_SLOW_FACTOR;
+        clampBallSpeed();
+
+        if (slowTimeoutId) clearTimeout(slowTimeoutId);
+        slowTimeoutId = setTimeout(() => {
+          game.ballSpeedLimit = null;
+          slowTimeoutId = null;
+        }, POWERUP_SLOW_MS);
+
+        return;
+      }
+    }
+
+    function updatePowerUps(dt) {
+      for (let i = powerUps.length - 1; i >= 0; i--) {
+        const pu = powerUps[i];
+        pu.y += pu.vy * dt;
+
+        const half = pu.size / 2;
+        const puLeft = pu.x - half;
+        const puRight = pu.x + half;
+        const puTop = pu.y - half;
+        const puBottom = pu.y + half;
+
+        const paddleLeft = paddle.x;
+        const paddleRight = paddle.x + paddle.w;
+        const paddleTop = paddle.y;
+        const paddleBottom = paddle.y + paddle.h;
+
+        const caught =
+          puRight >= paddleLeft &&
+          puLeft <= paddleRight &&
+          puBottom >= paddleTop &&
+          puTop <= paddleBottom;
+
+        if (caught) {
+          applyPowerUp(pu.type);
+          sfx("power");
+          powerUps.splice(i, 1);
+          continue;
+        }
+
+        if (puTop > canvas.height) powerUps.splice(i, 1);
+      }
+    }
+
+    // --- Bricks array ---
+    let bricks = [];
+
+    // Init
+    resetGame();
+
+    // --- Input listeners ---
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "ArrowLeft") { keys.left = true; e.preventDefault(); ensureAudio(); }
+      if (e.code === "ArrowRight") { keys.right = true; e.preventDefault(); ensureAudio(); }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        ensureAudio();
+
+        if (game.status === "SERVE") {
+          launchBall();
+        } else if (game.status === "WIN") {
+          startLevel(game.level + 1);
+        } else if (game.status === "GAME_OVER") {
+          resetGame();
+        }
+      }
+
+      if (e.code === "KeyM") {
+        e.preventDefault();
+        game.muted = !game.muted;
+        if (!game.muted) ensureAudio();
+      }
+      
+      if (e.code === "KeyP") {
+        e.preventDefault();
+        // Pause is only meaningful during gameplay
+        if (game.status === "PLAYING") {
+          game.status = "PAUSED";
+        } else if (game.status === "PAUSED") {
+          game.status = "PLAYING";
+        }
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowLeft") keys.left = false;
+      if (e.code === "ArrowRight") keys.right = false;
+    });
+
+    // --- Timing ---
+    let lastTs = performance.now();
+
+    function update(dt) {
+      // mișcare paletă în toate stările (inclusiv SERVE / PAUSED)
+      if (mouse.active) {
+        paddle.x = clamp(mouse.x - paddle.w / 2, 0, canvas.width - paddle.w);
+      } else {
+        let dir = 0;
+        if (keys.left) dir -= 1;
+        if (keys.right) dir += 1;
+
+        paddle.x += dir * paddle.speed * dt;
+        paddle.x = clamp(paddle.x, 0, canvas.width - paddle.w);
+      }
+
+      // Pauză: înghează logica de joc, dar permite repoziționarea paletei
+      if (game.status === "PAUSED") return;
+
+      if (game.status === "SERVE") {
+        ball.x = paddle.x + paddle.w / 2;
+        ball.y = paddle.y - ball.r;
+        return;
+      }
+
+      if (game.status !== "PLAYING") return;
+
+      // --- Ball movement ---
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+
+      // --- Wall collisions ---
+      if (ball.x - ball.r < 0) {
+        ball.x = ball.r;
+        ball.vx *= -1;
+        sfx("wall");
+      } else if (ball.x + ball.r > canvas.width) {
+        ball.x = canvas.width - ball.r;
+        ball.vx *= -1;
+        sfx("wall");
+      }
+
+      if (ball.y - ball.r < 0) {
+        ball.y = ball.r;
+        ball.vy *= -1;
+        sfx("wall");
+      }
+
+      // --- Paddle collision (bounce with angle) ---
+      if (ball.vy > 0) {
+        const paddleLeft = paddle.x;
+        const paddleRight = paddle.x + paddle.w;
+        const paddleTop = paddle.y;
+        const paddleBottom = paddle.y + paddle.h;
+
+        const ballLeft = ball.x - ball.r;
+        const ballRight = ball.x + ball.r;
+        const ballTop = ball.y - ball.r;
+        const ballBottom = ball.y + ball.r;
+
+        const intersects =
+          ballRight >= paddleLeft &&
+          ballLeft <= paddleRight &&
+          ballBottom >= paddleTop &&
+          ballTop <= paddleBottom;
+
+        if (intersects) {
+          ball.y = paddleTop - ball.r;
+
+          const paddleCenter = paddle.x + paddle.w / 2;
+          let hit = (ball.x - paddleCenter) / (paddle.w / 2);
+          hit = Math.max(-1, Math.min(1, hit));
+
+          // +0.3% per hit (menții feel-ul tău), dar cu eventual SLOW cap la final
+          const speed = Math.hypot(ball.vx, ball.vy) * 1.003;
+          const angle = hit * MAX_BOUNCE_ANGLE;
+
+          ball.vx = speed * Math.sin(angle);
+          ball.vy = -Math.abs(speed * Math.cos(angle));
+
+          game.combo = 0; // combo se resetează când atingi paleta
+          sfx("paddle");
+        }
+      }
+
+      // --- Brick collisions ---
+      const ballLeft = ball.x - ball.r;
+      const ballRight = ball.x + ball.r;
+      const ballTop = ball.y - ball.r;
+      const ballBottom = ball.y + ball.r;
+
+      for (const br of bricks) {
+        if (!br.alive) continue;
+
+        const brLeft = br.x;
+        const brRight = br.x + br.w;
+        const brTop = br.y;
+        const brBottom = br.y + br.h;
+
+        const hit =
+          ballRight >= brLeft &&
+          ballLeft <= brRight &&
+          ballBottom >= brTop &&
+          ballTop <= brBottom;
+
+        if (hit) {
+          // bounce axis by minimum penetration
+          const overlapX = Math.min(ballRight - brLeft, brRight - ballLeft);
+          const overlapY = Math.min(ballBottom - brTop, brBottom - ballTop);
+
+          if (overlapX < overlapY) {
+            if (ball.x < br.x + br.w / 2) ball.x -= overlapX;
+            else ball.x += overlapX;
+            ball.vx *= -1;
+          } else {
+            if (ball.y < br.y + br.h / 2) ball.y -= overlapY;
+            else ball.y += overlapY;
+            ball.vy *= -1;
+          }
+
+          // apply damage
+          br.hp -= 1;
+
+          if (br.hp <= 0) {
+            br.alive = false;
+
+            // combo scoring: fiecare cărămidă distrusă crește combo-ul până la un cap
+            game.combo += 1;
+            const mult = 1 + Math.min(4, game.combo - 1); // 1x..5x
+            game.score += 10 * mult;
+            syncHighScore();
+
+            // șansă power-up doar la distrugere
+            if (Math.random() < POWERUP_CHANCE) {
+              spawnPowerUp(br.x + br.w / 2, br.y + br.h / 2);
+            }
+            sfx("brick");
+          } else {
+            // a fost lovită, dar nu distrusă
+            game.score += 2;
+            syncHighScore();
+            sfx("brick2");
+          }
+
+          break; // stabil: o singură cărămidă per frame
+        }
+      }
+
+      // Power-ups falling / pickup
+      updatePowerUps(dt);
+
+      // aplicăm eventuale limitări de viteză (SLOW)
+      clampBallSpeed();
+
+      // Win condition
+      if (!bricks.some(b => b.alive)) {
+        game.status = "WIN";
+        sfx("win");
+        return;
+      }
+
+      // --- Bottom: lose a life ---
+      if (ball.y - ball.r > canvas.height) {
+        game.lives -= 1;
+        game.combo = 0;
+        sfx("life");
+
+        if (game.lives <= 0) {
+          game.status = "GAME_OVER";
+        } else {
+          resetBallAndPaddle();
+          game.status = "SERVE";
+        }
+      }
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Bricks - cu efect 3D
+      const brickColors = [
+        "#e74c3c", // roșu
+        "#e67e22", // portocaliu
+        "#f39c12", // galben-portocaliu
+        "#2ecc71", // verde
+        "#3498db", // albastru
+        "#9b59b6", // violet
+        "#1abc9c", // turcoaz
+        "#34495e"  // gri închis
+      ];
+
+      for (let i = 0; i < bricks.length; i++) {
+        const br = bricks[i];
+        if (!br.alive) continue;
+
+        const row = Math.floor(i / BRICK_COLS);
+        const baseColor = brickColors[row % brickColors.length];
+
+        // Umbrire pentru profunzime (partea de jos și dreapta)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(br.x + 2, br.y + 2, br.w, br.h);
+
+        // Corpul principal al cărămizii
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(br.x, br.y, br.w, br.h);
+
+        // Highlight (partea de sus și stânga pentru efect 3D)
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.fillRect(br.x, br.y, br.w, 2);
+        ctx.fillRect(br.x, br.y, 2, br.h);
+
+        // Umbră interioară (jos și dreapta)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.fillRect(br.x, br.y + br.h - 2, br.w, 2);
+        ctx.fillRect(br.x + br.w - 2, br.y, 2, br.h);
+
+        // Border subțire
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(br.x, br.y, br.w, br.h);
+
+        // Indicator HP (pentru 2-hit bricks)
+        // două "pips" mici în colțul stânga-sus dacă maxHp=2
+        if (br.maxHp >= 2) {
+          ctx.fillStyle = "rgba(0,0,0,0.35)";
+          ctx.fillRect(br.x + 4, br.y + 4, 10, 4);
+          if (br.hp >= 2) {
+            ctx.fillStyle = "rgba(255,255,255,0.55)";
+            ctx.fillRect(br.x + 4, br.y + 4, 10, 4);
+          } else {
+            ctx.fillStyle = "rgba(255,255,255,0.25)";
+            ctx.fillRect(br.x + 4, br.y + 4, 5, 4);
+          }
+        }
+      }
+
+      // Power-ups - cu efect 3D
+      for (const pu of powerUps) {
+        const half = pu.size / 2;
+        const px = pu.x - half;
+        const py = pu.y - half;
+
+        // Umbră
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(px + 2, py + 2, pu.size, pu.size);
+
+        // Culoare pe baza tipului
+        if (pu.type === "WIDE") ctx.fillStyle = "#3498db";
+        else ctx.fillStyle = "#e74c3c";
+        ctx.fillRect(px, py, pu.size, pu.size);
+
+        // Highlight
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.fillRect(px, py, pu.size, 2);
+        ctx.fillRect(px, py, 2, pu.size);
+
+        // Border
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, pu.size, pu.size);
+
+        // Litera
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 12px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(pu.type === "WIDE" ? "W" : "S", pu.x, pu.y);
+      }
+
+      // Paddle - cu efect 3D
+      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+      ctx.fillRect(paddle.x + 3, paddle.y + 3, paddle.w, paddle.h);
+
+      const paddleGradient = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.h);
+      paddleGradient.addColorStop(0, "#f0f0f0");
+      paddleGradient.addColorStop(0.5, "#d0d0d0");
+      paddleGradient.addColorStop(1, "#b0b0b0");
+      ctx.fillStyle = paddleGradient;
+      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.fillRect(paddle.x, paddle.y, paddle.w, 3);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.fillRect(paddle.x, paddle.y, 3, paddle.h);
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.fillRect(paddle.x, paddle.y + paddle.h - 2, paddle.w, 2);
+
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(paddle.x, paddle.y, paddle.w, paddle.h);
+
+      // Ball - cu gradient radial pentru efect 3D
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+
+      const ballGradient = ctx.createRadialGradient(
+        ball.x - ball.r * 0.3, ball.y - ball.r * 0.3, ball.r * 0.1,
+        ball.x, ball.y, ball.r
+      );
+      ballGradient.addColorStop(0, "#ffffff");
+      ballGradient.addColorStop(0.3, "#f5f5f5");
+      ballGradient.addColorStop(0.7, "#d0d0d0");
+      ballGradient.addColorStop(1, "#a0a0a0");
+
+      ctx.fillStyle = ballGradient;
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.closePath();
+
+      // HUD
+      ctx.fillStyle = "#9aa0a6";
+      ctx.font = "14px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+
+      ctx.fillText(`Score: ${game.score}`, 10, 22);
+      ctx.fillText(`Hi: ${highScore}`, 110, 22);
+      ctx.fillText(`Lives: ${game.lives}`, 200, 22);
+      ctx.fillText(`Level: ${game.level}`, 290, 22);
+      ctx.fillText(`Combo: ${game.combo}`, 380, 22);
+
+      const effects = [];
+      if (wideTimeoutId) effects.push("WIDE");
+      if (game.ballSpeedLimit != null) effects.push("SLOW");
+      ctx.fillText(`Effects: ${effects.length ? effects.join(", ") : "-"}`, 480, 22);
+
+      ctx.fillText(`Sound: ${game.muted ? "OFF" : "ON"}`, 690, 22);
+
+      // Overlay
+      if (game.status !== "PLAYING") {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#e6e6e6";
+        ctx.font = "26px system-ui, sans-serif";
+
+        let msg = "";
+        let msg2 = "";
+
+        if (game.status === "SERVE") {
+          msg = `LEVEL ${game.level}`;
+          msg2 = "Apasă SPACE pentru start";
+        } else if (game.status === "PAUSED") {
+          msg = "PAUSED";
+          msg2 = "Apasă P pentru a continua";
+        } else if (game.status === "WIN") {
+          msg = "YOU WIN";
+          msg2 = "Apasă SPACE pentru nivelul următor";
+        } else if (game.status === "GAME_OVER") {
+          msg = "GAME OVER";
+          msg2 = "Apasă SPACE pentru restart";
+        }
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(msg, canvas.width / 2, canvas.height / 2 - 10);
+
+        ctx.font = "16px system-ui, sans-serif";
+        ctx.fillText(msg2, canvas.width / 2, canvas.height / 2 + 24);
+      }
+    }
+
+    function loop(ts) {
+      const dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+
+      const safeDt = Math.min(dt, 1 / 30);
+      update(safeDt);
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
