@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pong Game - Using Modular GameEngine</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: grid;
+      place-items: center;
+      height: 100vh;
+      font-family: system-ui, sans-serif;
+    }
+    
+    #game-container {
+      text-align: center;
+    }
+    
+    canvas {
+      background: #0b0b0b;
+      border: 1px solid #333;
+      display: block;
+      margin: 0 auto;
+    }
+    
+    .hint {
+      color: #bbb;
+      font-size: 14px;
+      line-height: 1.3;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .hint strong {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="pongCanvas"></canvas>
+    <div class="hint">
+      <strong>Controls:</strong> W/S to move left paddle | 
+      <strong>SPACE:</strong> Serve ball | 
+      <strong>P:</strong> Pause | 
+      <strong>M:</strong> Mute
+      <br>
+      Play against AI | First to 11 points wins
+    </div>
+  </div>
+
+  <script type="module">
+    import { PongGame } from './js/PongGame.js';
+    
+    // Create and start Pong game using the same engine
+    const game = new PongGame('pongCanvas', {
+      aiDifficulty: 0.85, // Adjust AI difficulty (0-1)
+      scoreToWin: 11
+    });
+    
+    game.start();
+  </script>
+</body>
+</html>

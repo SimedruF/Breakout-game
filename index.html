@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Game - Modular Version</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: grid;
+      place-items: center;
+      height: 100vh;
+      font-family: system-ui, sans-serif;
+    }
+    
+    #game-container {
+      text-align: center;
+    }
+    
+    canvas {
+      background: #0b0b0b;
+      border: 1px solid #333;
+      display: block;
+      margin: 0 auto;
+    }
+    
+    .hint {
+      color: #bbb;
+      font-size: 14px;
+      line-height: 1.3;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .hint strong {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div class="hint">
+      <strong>Controls:</strong> Arrow Keys or Mouse to move paddle | 
+      <strong>SPACE:</strong> Start/Next/Restart | 
+      <strong>P:</strong> Pause | 
+      <strong>M:</strong> Mute
+      <br>
+      <strong>Power-ups:</strong> W = Wide Paddle, S = Slow Ball | 
+      Some bricks require 2 hits to break
+    </div>
+  </div>
+
+  <script type="module">
+    import { BreakoutGame } from './js/BreakoutGame.js';
+    
+    // Create and start the game
+    const game = new BreakoutGame('gameCanvas', {
+      // Optional: Override default configuration
+      // width: 800,
+      // height: 500,
+      // startingLives: 5,
+      // powerupChance: 0.25,
+      // etc.
+    });
+    
+    // Start the game loop
+    game.start();
+  </script>
+</body>
+</html>

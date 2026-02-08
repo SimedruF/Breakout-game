@@ -4,7 +4,33 @@ A modern implementation of the classic Breakout arcade game, built with HTML5 Ca
 
 ## 🎮 Game Versions
 
-This repository contains four different versions of the game, each building upon the previous one:
+This repository contains both **standalone** and **modular** versions of the game:
+
+### Modular Version (Recommended for Developers)
+
+**New!** A fully modular implementation using reusable components:
+
+- **[GameEngine.js](js/GameEngine.js)** - Reusable game engine for any arcade game
+- **[BreakoutGame.js](js/BreakoutGame.js)** - Breakout implementation using the engine
+- **[PongGame.js](js/PongGame.js)** - Bonus Pong game using the same engine
+- **[index.html](index.html)** - Modular Breakout demo
+- **[pong.html](pong.html)** - Modular Pong demo
+- **[GAME_ENGINE_DOCS.md](GAME_ENGINE_DOCS.md)** - Complete API documentation
+
+**Why use the modular version?**
+- Reusable code across multiple games
+- Clean separation of concerns
+- Easy to extend and customize
+- Well-documented API
+- ES6 modules
+
+See **[GAME_ENGINE_DOCS.md](GAME_ENGINE_DOCS.md)** for how to create your own games using the engine!
+
+---
+
+### Standalone Versions
+
+Four progressive versions, each building upon the previous one:
 
 ### 1. **breakout.html** - Basic Version
 The foundation of the game with core mechanics:
@@ -81,26 +107,109 @@ The most complete version with all features:
 
 ## 🚀 Getting Started
 
+### For Players
+
 1. **Clone the repository**
    ```bash
    git clone https://github.com/SimedruF/Breakout-game.git
    cd Breakout-game
    ```
 
-2. **Open any version in your browser**
-   - Simply double-click on any `.html` file, or
-   - Use a local web server for best results:
-     ```bash
-     python -m http.server 8000
-     # Then open http://localhost:8000 in your browser
-     ```
+2. **Start a local server** (required for modular version)
+   ```bash
+   python -m http.server 8000
+   # or
+   python3 -m http.server 8000
+   # or use any other local server
+   ```
 
-3. **Start playing!**
-   - Choose the version you want to play
-   - Press Space to begin
-   - Break all bricks to advance to the next level
+3. **Open in browser**
+   - Modular Breakout: `http://localhost:8000/index.html`
+   - Modular Pong: `http://localhost:8000/pong.html`
+   - Standalone versions: `http://localhost:8000/breakout_next.html` (or any other `.html` file)
 
-## 🎓 Learning Path
+### For Game Development Beginners
+
+If you're learning game development, I recommend this progression:
+
+**Standalone Versions** (Learn game mechanics):
+1. **breakout.html** - Core game mechanics and physics
+2. **breakout_pause_mouse.html** - Enhanced input handling
+3. **breakout_powerups.html** - Game object management
+4. **breakout_next.html** - Advanced features and polish
+
+**Modular Version** (Learn software architecture):
+5. **GameEngine.js** - Study the reusable engine architecture
+6. **PongGame.js** - See how to use the engine for a simple game
+7. **BreakoutGame.js** - See how to use the engine for a complex game
+8. **Create your own game** - Use the engine to build something new!
+
+### Why Learn Both?
+
+- **Standalone versions**: Understand game mechanics without abstraction
+- **Modular version**: Learn professional code organization and reusability
+- **Progression**: From monolithic to modular architecture
+
+Want to create your own game using the engine?
+
+1. **Start with quick examples**: [EXAMPLES.md](EXAMPLES.md) - 4 copy-paste ready game examples
+2. **Read the API documentation**: [GAME_ENGINE_DOCS.md](GAME_ENGINE_DOCS.md) - Complete reference
+3. **Study the full implementations**: 
+   - [BreakoutGame.js](js/BreakoutGame.js) - Complex game with power-ups and combos
+   - [PongGame.js](js/PongGame.js) - Simple game with AI opponent
+4. **Create your own game**:
+   ```javascript
+   import { GameEngine } from './js/GameEngine.js';
+   
+   export class MyGame {
+     constructor(canvasId) {
+       this.engine = new GameEngine(canvasId);
+       // Your game setup...
+     }
+     
+     update(dt) { /* Game logic */ }
+     render(ctx) { /* Drawing */ }
+     
+     start() {
+       this.engine.start(
+         (dt) => this.update(dt),
+         (ctx) => this.render(ctx)
+       );
+     }
+   }
+   ```
+
+See the **[Developer Documentation](GAME_ENGINE_DOCS (ES6 modules in modular version)
+- **Web Audio API**: For sound effects
+- **localStorage**: For high score persistence
+
+### Modular Architecture
+
+The modular version uses modern JavaScript patterns:
+
+```
+GameEngine.js (Core)
+├── Canvas management
+├── Input handling (keyboard, mouse, touch)
+├── Game loop with delta time
+├── Audio system (WebAudio API)
+├── Collision detection (AABB, Circle-Rect, etc.)
+├── Utility functions
+└── Rendering helpers
+
+BreakoutGame.js / PongGame.js (Implementation)
+├── Game-specific logic
+├── Custom rendering
+├── Unique mechanics
+└── Uses GameEngine API
+```
+
+**Key Features:**
+- ES6 module system for clean imports
+- Callback-based architecture for flexibility  
+- Static utility methods for common operations
+- Configurable via constructor options
+- Easily extensible for new game types
 
 If you're learning game development, I recommend exploring the versions in order:
 
@@ -116,12 +225,27 @@ If you're learning game development, I recommend exploring the versions in order
 - **Vanilla JavaScript**: No frameworks or libraries
 - **Web Audio API**: For sound effects (version 4)
 - **localStorage**: For high score persistence (version 4)
+### Modular Version
+Pass configuration to the game constructor:
 
-### Key Algorithms
-- **Frame-based animation**: Using `requestAnimationFrame` for smooth 60 FPS gameplay
-- **Delta time**: Time-based movement for consistent speed across devices
-- **AABB collision detection**: Axis-Aligned Bounding Box for brick/paddle/ball collisions
-- **Minimum penetration**: Determines bounce axis based on overlap distance
+```javascript
+const game = new BreakoutGame('canvas', {
+  startingLives: 5,          // Start with 5 lives
+  powerupChance: 0.25,       // 25% power-up drop rate
+  baseBallSpeed: 400,        // Faster ball
+  aiDifficulty: 0.9          // (Pong) Harder AI
+});
+```
+
+See [GAME_ENGINE_DOCS.md](GAME_ENGINE_DOCS.md) for all configuration options.
+
+### Standalone Versions
+Edit constants in the JavaScript:
+- **Ball speed**: `BASE_BALL_SPEED` and `SPEED_PER_LEVEL`
+- **Power-up chances**: `POWERUP_CHANCE`
+- **Brick patterns**: `buildBricks()` function
+- **Colors**: Color arrays and CSS
+- **Sound effects**: Frequencies in `sfxrlap distance
 
 ### Performance
 - Efficient rendering with single canvas context
