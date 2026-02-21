@@ -1,37 +1,113 @@
 @echo off
-REM Space Shooter - Windows Startup Script
-REM Porneste un server HTTP local si deschide jocul in browser
+setlocal enabledelayedexpansion
 
-echo.
+color 0B
 echo ========================================
-echo    SPACE SHOOTER - Starting Game
+echo      Arcade Games Launcher
 echo ========================================
 echo.
 
-REM Verifica daca Python este instalat
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Python nu este instalat!
-    echo.
-    echo Descarca si instaleaza Python de la:
-    echo https://www.python.org/downloads/
-    echo.
+REM Check if Python is installed
+where python >nul 2>nul
+if %errorlevel% equ 0 (
+    set PYTHON_CMD=python
+) else (
+    where python3 >nul 2>nul
+    if %errorlevel% equ 0 (
+        set PYTHON_CMD=python3
+    ) else (
+        color 0C
+        echo Error: Python is not installed!
+        echo Please install Python 3 to run the local server.
+        pause
+        exit /b 1
+    )
+)
+
+echo [OK] Python found: %PYTHON_CMD%
+echo.
+
+REM Game selection menu
+color 0E
+echo Select a game to play:
+echo [1] Breakout (Classic brick-breaking)
+echo [2] Pong (Two-player paddle game)
+echo [3] Space Shooter (Vertical scrolling shooter)
+echo [4] Tetris (Classic falling blocks)
+echo [5] Breakout Ultimate (With power-ups ^& combos)
+echo.
+
+set /p choice="Enter your choice (1-5): "
+
+if "%choice%"=="1" (
+    set GAME_FILE=index.html
+    set GAME_NAME=Breakout
+) else if "%choice%"=="2" (
+    set GAME_FILE=pong.html
+    set GAME_NAME=Pong
+) else if "%choice%"=="3" (
+    set GAME_FILE=space_shooter.html
+    set GAME_NAME=Space Shooter
+) else if "%choice%"=="4" (
+    set GAME_FILE=tetris.html
+    set GAME_NAME=Tetris
+) else if "%choice%"=="5" (
+    set GAME_FILE=breakout_next.html
+    set GAME_NAME=Breakout Ultimate
+) else (
+    color 0C
+    echo Invalid choice. Exiting.
     pause
     exit /b 1
 )
 
-REM Port pentru server
+echo.
+color 0A
+echo [OK] Selected: %GAME_NAME%
+
+REM Find available port
 set PORT=8000
+:check_port
+netstat -an | find ":%PORT% " | find "LISTENING" >nul
+if %errorlevel% equ 0 (
+    echo [!] Port %PORT% is in use, trying next port...
+    set /a PORT+=1
+    goto check_port
+)
 
-echo [INFO] Pornesc server HTTP pe portul %PORT%...
-echo [INFO] Adresa jocului: http://localhost:%PORT%/space_shooter.html
+echo [OK] Using port: %PORT%
 echo.
-echo [TIP] Pentru a opri serverul, inchide aceasta fereastra sau apasa Ctrl+C
+echo Starting HTTP server...
+echo Press Ctrl+C to stop the server
 echo.
 
-REM Asteapta 2 secunde si deschide browser-ul
+REM Start server and open browser
+start /B %PYTHON_CMD% -m http.server %PORT% >nul 2>&1
+
+REM Wait for server to start
 timeout /t 2 /nobreak >nul
-start http://localhost:%PORT%/space_shooter.html
 
-REM Porneste serverul HTTP
-python -m http.server %PORT%
+REM Open browser
+set URL=http://localhost:%PORT%/%GAME_FILE%
+echo [OK] Opening %GAME_NAME% in browser...
+echo.
+start "" "%URL%"
+
+color 0B
+echo ========================================
+echo    Server is running!
+echo ========================================
+echo.
+echo Game: %GAME_NAME%
+echo URL: %URL%
+echo.
+echo Press any key to stop the server...
+pause >nul
+
+REM Stop the server
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":%PORT%" ^| find "LISTENING"') do taskkill /F /PID %%a >nul 2>&1
+
+color 0A
+echo.
+echo Server stopped.
+pause
