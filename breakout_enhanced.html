@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Enhanced - With Graphics Effects</title>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: system-ui, sans-serif;
+    }
+    
+    #game-container {
+      text-align: center;
+    }
+    
+    canvas {
+      background: #0f0f1e;
+      border: 3px solid #4a5568;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      display: block;
+      margin: 0 auto;
+    }
+    
+    .info {
+      color: #a0aec0;
+      font-size: 14px;
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+    
+    .info strong {
+      color: #fff;
+    }
+
+    h1 {
+      color: #fff;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(66, 153, 225, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h1>🎮 Breakout Enhanced</h1>
+    <canvas id="gameCanvas"></canvas>
+    <div class="info">
+      <strong>New Features:</strong> Particle explosions, glow effects, camera shake, trails<br>
+      <strong>Controls:</strong> Arrow Keys or Mouse | <strong>SPACE:</strong> Start | <strong>P:</strong> Pause
+    </div>
+  </div>
+
+  <script type="module">
+    import { GameEngine } from './js/GameEngine.js';
+    import { 
+      ParticleSystem, 
+      CameraShake, 
+      Trail,
+      drawGradientCircle,
+      drawBrick3D,
+      drawGlow,
+      drawTextWithOutline,
+      StarField,
+      drawVignette
+    } from './js/GraphicsEffects.js';
+
+    class BreakoutEnhanced {
+      constructor(canvasId) {
+        this.engine = new GameEngine(canvasId, {
+          width: 800,
+          height: 600,
+          backgroundColor: '#0f0f1e'
+        });
+
+        // Graphics effects
+        this.particles = new ParticleSystem();
+        this.shake = new CameraShake();
+        this.ballTrail = new Trail(8);
+        this.starfield = new StarField(800, 600, 50);
+
+        // Game objects
+        this.paddle = {
+          x: 350,
+          y: 550,
+          width: 100,
+          height: 15,
+          speed: 500
+        };
+
+        this.ball = {
+          x: 400,
+          y: 300,
+          radius: 8,
+          vx: 250,
+          vy: -250,
+          active: false
+        };
+
+        this.bricks = [];
+        this.score = 0;
+        this.gameStarted = false;
+
+        this._createBricks();
+        this._setupCallbacks();
+      }
+
+      _createBricks() {
+        const rows = 6;
+        const cols = 10;
+        const brickWidth = 70;
+        const brickHeight = 25;
+        const padding = 5;
+        const offsetX = 35;
+        const offsetY = 50;
+
+        const colors = [
+          '#e74c3c', '#e67e22', '#f39c12', 
+          '#2ecc71', '#3498db', '#9b59b6'
+        ];
+
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            this.bricks.push({
+              x: offsetX + col * (brickWidth + padding),
+              y: offsetY + row * (brickHeight + padding),
+              width: brickWidth,
+              height: brickHeight,
+              color: colors[row],
+              active: true
+            });
+          }
+        }
+      }
+
+      _setupCallbacks() {
+        this.engine.onUpdate = (dt) => this._update(dt);
+        this.engine.onRender = (ctx) => this._render(ctx);
+
+        this.engine.onKeyDown = (key) => {
+          if (key === 'Space' && !this.gameStarted) {
+            this.gameStarted = true;
+            this.ball.active = true;
+          }
+          if (key === 'KeyP') {
+            this.engine.togglePause();
+          }
+        };
+
+        this.engine.onMouseMove = (x, y) => {
+          if (this.engine.mouse.active) {
+            this.paddle.x = x - this.paddle.width / 2;
+            this.paddle.x = GameEngine.clamp(this.paddle.x, 0, 800 - this.paddle.width);
+          }
+        };
+      }
+
+      _update(dt) {
+        // Update effects
+        this.particles.update(dt);
+        this.shake.update(dt);
+        this.starfield.update(dt);
+
+        if (!this.gameStarted) return;
+
+        // Keyboard paddle movement
+        if (this.engine.isKeyPressed('ArrowLeft')) {
+          this.paddle.x -= this.paddle.speed * dt;
+        }
+        if (this.engine.isKeyPressed('ArrowRight')) {
+          this.paddle.x += this.paddle.speed * dt;
+        }
+        this.paddle.x = GameEngine.clamp(this.paddle.x, 0, 800 - this.paddle.width);
+
+        // Ball movement
+        if (this.ball.active) {
+          this.ball.x += this.ball.vx * dt;
+          this.ball.y += this.ball.vy * dt;
+
+          // Add trail
+          this.ballTrail.add(this.ball.x, this.ball.y, {
+            radius: this.ball.radius
+          });
+
+          // Wall collisions
+          if (this.ball.x - this.ball.radius <= 0 || this.ball.x + this.ball.radius >= 800) {
+            this.ball.vx = -this.ball.vx;
+            this.ball.x = GameEngine.clamp(this.ball.x, this.ball.radius, 800 - this.ball.radius);
+            this.engine.playSound('wall');
+            this.particles.emit(this.ball.x, this.ball.y, 5, '#4a90e2');
+          }
+
+          if (this.ball.y - this.ball.radius <= 0) {
+            this.ball.vy = -this.ball.vy;
+            this.ball.y = this.ball.radius;
+            this.engine.playSound('wall');
+            this.particles.emit(this.ball.x, this.ball.y, 5, '#4a90e2');
+          }
+
+          // Bottom - reset
+          if (this.ball.y - this.ball.radius > 600) {
+            this.ball.active = false;
+            this.ball.x = 400;
+            this.ball.y = 300;
+            this.gameStarted = false;
+            this.shake.trigger(15, 0.3);
+            this.particles.createExplosion(400, 600, '#e74c3c', 30);
+          }
+
+          // Paddle collision
+          const paddleRect = {
+            x: this.paddle.x,
+            y: this.paddle.y,
+            w: this.paddle.width,
+            h: this.paddle.height
+          };
+
+          if (GameEngine.circleRectIntersects({
+            x: this.ball.x,
+            y: this.ball.y,
+            r: this.ball.radius
+          }, paddleRect)) {
+            this.ball.vy = -Math.abs(this.ball.vy);
+            this.ball.y = this.paddle.y - this.ball.radius;
+            
+            // Angle based on hit position
+            const hitPos = (this.ball.x - this.paddle.x) / this.paddle.width;
+            this.ball.vx = (hitPos - 0.5) * 400;
+            
+            this.engine.playSound('paddle');
+            this.shake.trigger(3, 0.1);
+            this.particles.createSparkles(this.ball.x, this.ball.y, 8);
+          }
+
+          // Brick collisions
+          for (let brick of this.bricks) {
+            if (!brick.active) continue;
+
+            const brickRect = {
+              x: brick.x,
+              y: brick.y,
+              w: brick.width,
+              h: brick.height
+            };
+
+            if (GameEngine.circleRectIntersects({
+              x: this.ball.x,
+              y: this.ball.y,
+              r: this.ball.radius
+            }, brickRect)) {
+              brick.active = false;
+              this.ball.vy = -this.ball.vy;
+              this.score += 10;
+              
+              // Visual effects
+              this.engine.playSound('brick');
+              this.shake.trigger(5, 0.15);
+              this.particles.createExplosion(
+                brick.x + brick.width/2,
+                brick.y + brick.height/2,
+                brick.color,
+                15
+              );
+              
+              break;
+            }
+          }
+        } else {
+          // Ball follows paddle when not active
+          this.ball.x = this.paddle.x + this.paddle.width / 2;
+          this.ball.y = this.paddle.y - this.ball.radius - 5;
+        }
+
+        // Register sounds
+        this.engine.registerSound('wall', { frequency: 200, duration: 50, gain: 0.1, type: 'square' });
+        this.engine.registerSound('paddle', { frequency: 300, duration: 50, gain: 0.1, type: 'sine' });
+        this.engine.registerSound('brick', { frequency: 500, duration: 100, gain: 0.15, type: 'triangle' });
+      }
+
+      _render(ctx) {
+        // Clear
+        ctx.fillStyle = '#0f0f1e';
+        ctx.fillRect(0, 0, 800, 600);
+
+        // Apply camera shake
+        this.shake.apply(ctx, () => {
+          // Background starfield
+          this.starfield.draw(ctx);
+
+          // Draw bricks with 3D effect
+          for (let brick of this.bricks) {
+            if (brick.active) {
+              drawBrick3D(ctx, brick.x, brick.y, brick.width, brick.height, brick.color);
+            }
+          }
+
+          // Draw paddle with gradient
+          const paddleGradient = ctx.createLinearGradient(
+            this.paddle.x, this.paddle.y,
+            this.paddle.x, this.paddle.y + this.paddle.height
+          );
+          paddleGradient.addColorStop(0, '#4a90e2');
+          paddleGradient.addColorStop(1, '#2e5c8a');
+          ctx.fillStyle = paddleGradient;
+          ctx.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
+
+          // Paddle outline
+          ctx.strokeStyle = '#6bb6ff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
+
+          // Draw ball trail
+          this.ballTrail.draw(ctx, (ctx, segment) => {
+            drawGradientCircle(ctx, segment.x, segment.y, segment.radius, 
+              'rgba(74, 144, 226, 0.5)', 'rgba(74, 144, 226, 0)');
+          });
+
+          // Draw ball with glow
+          drawGlow(ctx, this.ball.x, this.ball.y, 20, 'rgba(74, 144, 226, 1)', 0.6);
+          drawGradientCircle(ctx, this.ball.x, this.ball.y, this.ball.radius,
+            '#ffffff', '#4a90e2');
+
+          // Draw particles
+          this.particles.draw(ctx);
+        });
+
+        // UI (not affected by shake)
+        drawTextWithOutline(ctx, `SCORE: ${this.score}`, 100, 30, 24, '#ffffff', '#000000', 3);
+
+        if (!this.gameStarted) {
+          drawTextWithOutline(ctx, 'PRESS SPACE TO START', 400, 300, 32, '#ffffff', '#000000', 4);
+        }
+
+        // Vignette effect
+        drawVignette(ctx, 800, 600, 0.3);
+      }
+
+      start() {
+        this.engine.start();
+      }
+    }
+
+    // Start the enhanced game
+    const game = new BreakoutEnhanced('gameCanvas');
+    game.start();
+  </script>
+</body>
+</html>
