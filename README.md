@@ -1,10 +1,18 @@
-# Breakout Game
+# Arcade Games Collection
 
-A modern implementation of the classic Breakout arcade game, built with HTML5 Canvas and JavaScript. This project showcases progressive game development with multiple versions, each adding new features and improvements.
+A collection of classic arcade games built with HTML5 Canvas and JavaScript. This project showcases progressive game development with multiple implementations, from standalone versions to a fully modular architecture using a reusable game engine.
 
-## 🎮 Game Versions
+## 🎮 Games in This Repository
 
-This repository contains both **standalone** and **modular** versions of the game:
+This repository contains arcade games built with HTML5 Canvas and JavaScript, showcasing both **standalone** and **modular** implementations.
+
+### 🚀 Available Games
+
+1. **Breakout** - Classic brick-breaking game (4 standalone versions + modular)
+2. **Pong** - Two-player paddle game with AI opponent
+3. **Space Shooter** - Vertical scrolling space shooter with enemies, asteroids, and power-ups
+
+---
 
 ### Modular Version (Recommended for Developers)
 
@@ -13,16 +21,29 @@ This repository contains both **standalone** and **modular** versions of the gam
 - **[GameEngine.js](js/GameEngine.js)** - Reusable game engine for any arcade game
 - **[BreakoutGame.js](js/BreakoutGame.js)** - Breakout implementation using the engine
 - **[PongGame.js](js/PongGame.js)** - Bonus Pong game using the same engine
+- **[SpaceShooterGame.js](js/SpaceShooterGame.js)** - Vertical space shooter game using the engine
 - **[index.html](index.html)** - Modular Breakout demo
 - **[pong.html](pong.html)** - Modular Pong demo
+- **[space_shooter.html](space_shooter.html)** - Modular Space Shooter demo
 - **[GAME_ENGINE_DOCS.md](GAME_ENGINE_DOCS.md)** - Complete API documentation
 
 **Why use the modular version?**
-- Reusable code across multiple games
+- Reusable code across multiple games (3 games using the same engine!)
 - Clean separation of concerns
 - Easy to extend and customize
 - Well-documented API
 - ES6 modules
+
+### Space Shooter Features
+- **Vertical scrolling**: Enemies and asteroids descend from above
+- **Power-up system**: 4 types (Rapid Fire, Dual Guns, Shield, Ship Upgrade)
+- **Progressive difficulty**: Enemy AI shooting from level 2+
+- **Permanent upgrades**: 
+  - Level 3: Rapid Fire becomes permanent
+  - Level 5: Dual Guns become permanent + Shield 3x duration
+  - Level 10: Triple Fire unlocked
+- **Enhanced graphics**: Gradient effects, particle explosions, glowing shields
+- **Controls**: Arrow keys/WASD for movement, SPACE to shoot, Mouse support
 
 See **[GAME_ENGINE_DOCS.md](GAME_ENGINE_DOCS.md)** for how to create your own games using the engine!
 
@@ -126,7 +147,12 @@ The most complete version with all features:
 3. **Open in browser**
    - Modular Breakout: `http://localhost:8000/index.html`
    - Modular Pong: `http://localhost:8000/pong.html`
+   - Modular Space Shooter: `http://localhost:8000/space_shooter.html`
    - Standalone versions: `http://localhost:8000/breakout_next.html` (or any other `.html` file)
+
+   **Or use the quick-start scripts:**
+   - Linux/Mac: `./start_game.sh` (launches Space Shooter)
+   - Windows: `start_game.bat`
 
 ### For Game Development Beginners
 
@@ -142,7 +168,8 @@ If you're learning game development, I recommend this progression:
 5. **GameEngine.js** - Study the reusable engine architecture
 6. **PongGame.js** - See how to use the engine for a simple game
 7. **BreakoutGame.js** - See how to use the engine for a complex game
-8. **Create your own game** - Use the engine to build something new!
+8. **SpaceShooterGame.js** - See advanced features: power-ups, progression, enemy AI
+9. **Create your own game** - Use the engine to build something new!
 
 ### Why Learn Both?
 
@@ -157,6 +184,7 @@ Want to create your own game using the engine?
 3. **Study the full implementations**: 
    - [BreakoutGame.js](js/BreakoutGame.js) - Complex game with power-ups and combos
    - [PongGame.js](js/PongGame.js) - Simple game with AI opponent
+   - [SpaceShooterGame.js](js/SpaceShooterGame.js) - Advanced vertical shooter with progression system
 4. **Create your own game**:
    ```javascript
    import { GameEngine } from './js/GameEngine.js';
@@ -197,7 +225,7 @@ GameEngine.js (Core)
 ├── Utility functions
 └── Rendering helpers
 
-BreakoutGame.js / PongGame.js (Implementation)
+BreakoutGame.js / PongGame.js / SpaceShooterGame.js (Implementation)
 ├── Game-specific logic
 ├── Custom rendering
 ├── Unique mechanics

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Shooter - Vertical Shooter Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 100%);
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+    
+    .container {
+      text-align: center;
+    }
+    
+    h1 {
+      margin-bottom: 20px;
+      font-size: 2.5em;
+      text-shadow: 0 0 10px #4ecdc4, 0 0 20px #4ecdc4;
+    }
+    
+    canvas {
+      border: 3px solid #4ecdc4;
+      box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+      background: #0a0e27;
+      display: block;
+      margin: 0 auto;
+    }
+    
+    .info {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      text-align: left;
+      margin-top: 10px;
+    }
+    
+    .controls div {
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+    }
+    
+    .controls strong {
+      color: #4ecdc4;
+    }
+    
+    .features {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(78, 205, 196, 0.1);
+      border-radius: 5px;
+    }
+    
+    .features h3 {
+      color: #4ecdc4;
+      margin-bottom: 10px;
+    }
+    
+    .features ul {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 8px;
+      text-align: left;
+    }
+    
+    .features li:before {
+      content: "🚀 ";
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 SPACE SHOOTER 🚀</h1>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="info">
+      <h3>Controls</h3>
+      <div class="controls">
+        <div><strong>Move:</strong> Arrows / WASD</div>
+        <div><strong>Shoot:</strong> SPACE</div>
+        <div><strong>Pause:</strong> P</div>
+        <div><strong>Mute:</strong> M</div>
+      </div>
+      
+      <div class="features">
+        <h3>Features</h3>
+        <ul>
+          <li>Descending enemy ships</li>
+          <li>Rotating asteroids</li>
+          <li>⚡ Level 3: Rapid Fire becomes PERMANENT</li>
+          <li>⚡ Level 5: Dual Guns becomes PERMANENT</li>
+          <li>Power-up Shield (S) - temporary shield</li>
+          <li>Power-up UPGRADE (U) - bigger golden ship</li>
+          <li>Particle systems for explosions</li>
+          <li>Increasing difficulty per level</li>
+          <li>Locally saved high score</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module">
+    import { SpaceShooterGame } from './js/SpaceShooterGame.js';
+    
+    // Initialize game
+    const game = new SpaceShooterGame('gameCanvas');
+    
+    // Start the render loop (game stays in READY state until SPACE is pressed)
+    game.engine.start(
+      (dt) => game.update(dt),
+      (ctx) => game.render(ctx)
+    );
+    
+    console.log('Space Shooter initialized! Press SPACE to start.');
+  </script>
+</body>
+</html>
