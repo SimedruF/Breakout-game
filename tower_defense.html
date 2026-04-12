@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tower Defense</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+    h1 {
+      margin: 15px 0 5px;
+      font-size: 1.8rem;
+      color: #FFD700;
+      text-shadow: 0 0 10px rgba(255,215,0,0.3);
+    }
+    canvas {
+      border: 2px solid #333;
+      border-radius: 4px;
+      cursor: crosshair;
+    }
+    .info {
+      margin-top: 12px;
+      display: flex;
+      gap: 30px;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+    .info div { text-align: center; }
+    .info span { color: #FFD700; font-weight: bold; }
+    .features {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+      max-width: 810px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏰 Tower Defense</h1>
+  <canvas id="gameCanvas"></canvas>
+  <div class="info">
+    <div><span>1-4</span> Select tower</div>
+    <div><span>Click</span> Place tower</div>
+    <div><span>S</span> Sell tower</div>
+    <div><span>Space</span> Start / Next wave</div>
+    <div><span>P</span> Pause</div>
+    <div><span>M</span> Mute</div>
+  </div>
+  <div class="features">
+    4 tower types (Arrow, Cannon, Ice, Lightning) · Wave-based enemies · Splash damage · Chain lightning · Slow effects · Boss enemies
+  </div>
+
+  <script type="module">
+    import { TowerDefenseGame } from './js/TowerDefenseGame.js';
+    new TowerDefenseGame('gameCanvas');
+  </script>
+</body>
+</html>

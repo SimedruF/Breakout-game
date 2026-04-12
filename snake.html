@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake - Classic Arcade Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1b5e20 0%, #004d40 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #fff;
+      padding: 20px;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 3em;
+      margin-bottom: 10px;
+      text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+      letter-spacing: 4px;
+    }
+
+    .subtitle {
+      font-size: 1.2em;
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      background: #1a1a2e;
+    }
+
+    .info {
+      margin-top: 30px;
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .controls div {
+      padding: 8px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 5px;
+    }
+
+    .controls strong {
+      color: #ffd700;
+      margin-right: 8px;
+    }
+
+    .features {
+      text-align: left;
+    }
+
+    .features h3 {
+      margin-bottom: 10px;
+      color: #ffd700;
+    }
+
+    .features ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .features li {
+      padding: 5px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .features li:before {
+      content: "▪";
+      position: absolute;
+      left: 0;
+      color: #ffd700;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2em;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🐍 SNAKE</h1>
+    <p class="subtitle">The Classic Arcade Snake Game</p>
+
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <div class="info">
+      <h3>Controls</h3>
+      <div class="controls">
+        <div><strong>Move:</strong> ← → ↑ ↓ Arrows</div>
+        <div><strong>Alt Move:</strong> W A S D</div>
+        <div><strong>Pause:</strong> P</div>
+        <div><strong>Mute:</strong> M</div>
+        <div><strong>Start:</strong> SPACE</div>
+        <div><strong>Restart:</strong> SPACE</div>
+      </div>
+
+      <div class="features">
+        <h3>Features</h3>
+        <ul>
+          <li>Classic snake gameplay with wrap-around edges</li>
+          <li>Progressive speed increase as you eat more</li>
+          <li>High score saved locally</li>
+          <li>Sound effects</li>
+          <li>Simple, clean graphics with grid</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { SnakeGame } from './js/SnakeGame.js';
+
+    const game = new SnakeGame('gameCanvas');
+
+    game.engine.start(
+      (dt) => game._updateGame(dt),
+      (ctx) => game._renderGame(ctx)
+    );
+
+    console.log('Snake initialized! Press SPACE to start.');
+  </script>
+</body>
+</html>
