@@ -1118,11 +1118,6 @@ export class TowerDefenseGame {
 
       ctx.restore();
 
-      // Shooting glow when cooldown is low
-      if (tower.cooldown <= 0.1) {
-        drawGlow(ctx, cx, cy, s * 0.7, `rgba(255,255,255`, 0.12);
-      }
-
       // Level stars indicator
       const lvl = tower.level || 1;
       if (lvl > 1) {
